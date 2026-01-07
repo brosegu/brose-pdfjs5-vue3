@@ -108,7 +108,7 @@ const search = async (searchText) => {
         const textContent = await page.getTextContent();
         const textItems = textContent.items.map(item => item.str);
 
-        if (textItems.some(text => text.includes(searchText.value))) {
+        if (textItems.some(text => text.includes(searchText))) {
             currentPage.value = i;
             break;
         }
