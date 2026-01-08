@@ -1,23 +1,24 @@
 <template>
     <div class="pdf-container">
         <div class="controls">
-            <PdfToolbar :page="currentPage" :total="totalPages" :scale="scale" @search="search" @prev="prevPage"
-                @next="nextPage" @zoomIn="scale += 0.1; renderPage()" @zoomOut="scale -= 0.1; renderPage()" />
+            <PdfToolbar v-model:current-page="currentPage" :total="totalPages" :scale="scale" @search="search"
+                @prev="prevPage" @next="nextPage" @zoomIn="scale += 0.1;" @zoomOut="scale -= 0.1;" />
         </div>
         <div class="body">
-            <aside class="outline">
-                <a-tabs size="small" tab-position="left">
-                    <a-tab-pane key="thumb" tab="页面">
-                        <PdfThumbnails @jump="thumbJump" :pdf-doc="pdfInstance" :total-pages="totalPages"
-                            :current-page="currentPage" />
-                    </a-tab-pane>
-                    <a-tab-pane key="outline" tab="大纲">
-                        <PdfOutline :pdf-doc="pdfInstance" @jump="outlineJump" />
-                    </a-tab-pane>
-                </a-tabs>
+            <aside class="outline relative">
+                <a-radio-group v-model:value="sideMode" button-style="solid" size="small"
+                    class="absolute left-2 top-2 z-10">
+                    <a-radio-button value="thumbs">缩略图导航</a-radio-button>
+                    <a-radio-button value="outline">大纲</a-radio-button>
+                </a-radio-group>
+                <PdfThumbnails @jump="thumbJump" v-if="sideMode === 'thumbs'" :pdf-doc="pdfInstance"
+                    :total-pages="totalPages" v-model:current-page="currentPage" />
+                <PdfOutline :pdf-doc="pdfInstance" v-else @jump="outlineJump" />
             </aside>
             <div class="pdf-viewer">
-                <canvas ref="pdfCanvas"></canvas>
+                <div v-for="pageNum in totalPages" :key="pageNum" class="py-2 flex justify-center" :id="`viewer_pageitem_${pageNum}`">
+                    <canvas :ref="el => renderPage(el, pageNum)"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -25,6 +26,7 @@
 
 <script setup>
 import { onMounted, ref, watch } from 'vue';
+import {range} from "lodash-es"
 import PdfOutline from './PdfOutline.vue';
 import PdfThumbnails from './PdfThumbnails.vue';
 import PdfToolbar from './PdfToolbar.vue';
@@ -35,7 +37,9 @@ const pdfCanvas = ref(null);
 const currentPage = ref(1);
 const totalPages = ref(0);
 const scale = ref(1.4);
+const sideMode = ref("thumbs")
 let pdfInstance = null;
+const renderTasks = new Map();
 const props = defineProps({
     pdfUrl: {
         type: String,
@@ -51,13 +55,18 @@ const loadPdf = async () => {
 };
 
 // 渲染当前页
-const renderPage = async () => {
-    if (!pdfInstance) return;
-    const page = await pdfInstance.getPage(currentPage.value);
-    const viewport = page.getViewport({ scale: scale.value });
-    const canvas = pdfCanvas.value;
-    const context = canvas.getContext('2d');
+const renderPage = async (canvas, pageNum, scaleValue = scale.value) => {
+    if (!pdfInstance || !canvas) return;
+    // 如果上一次 render 还在，先取消
+    const prevTask = renderTasks.get(pageNum)
+    if (prevTask) {
+        prevTask.cancel()
+        renderTasks.delete(pageNum)
+    }
 
+    const page = await pdfInstance.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scaleValue });
+    const context = canvas.getContext('2d');
     canvas.height = viewport.height;
     canvas.width = viewport.width;
 
@@ -66,7 +75,16 @@ const renderPage = async () => {
         viewport: viewport
     };
 
-    await page.render(renderContext).promise;
+    const renderTask = page.render(renderContext)
+    renderTasks.set(pageNum, renderTask)
+
+    try {
+        await renderTask.promise
+    } catch (err) {
+        if (err?.name !== 'RenderingCancelledException') {
+            throw err
+        }
+    }
 };
 // 翻页功能
 const prevPage = () => {
@@ -80,6 +98,9 @@ const nextPage = () => {
         currentPage.value++;
     }
 };
+const scrollByPage = page => {
+    document.getElementById(`viewer_pageitem_${page}`).scrollIntoView({ behavior: 'smooth' });
+}
 const thumbJump = (page) => {
     if (page >= 1 && page <= totalPages.value) {
         currentPage.value = page;
@@ -100,6 +121,16 @@ const outlineJump = async item => {
         console.warn('gotoOutline error', err);
     }
 }
+async function rerenderAllPages(scaleValue) {
+    for (const item of range(1, totalPages.value + 1)) {
+        const canvas = document.querySelector(
+            `#viewer_pageitem_${item} canvas`
+        );
+        if (canvas) {
+           await renderPage(canvas, item, scaleValue)
+        }
+    }
+}
 // 搜索功能
 const search = async (searchText) => {
     if (!searchText) return;
@@ -117,7 +148,8 @@ const search = async (searchText) => {
 };
 
 // 监听页码变化重新渲染
-watch(currentPage, renderPage);
+watch(currentPage, scrollByPage);
+watch(scale, rerenderAllPages);
 
 onMounted(loadPdf);
 
@@ -151,7 +183,7 @@ onMounted(loadPdf);
         overflow: hidden;
 
         .outline {
-            width: 330px;
+            width: 300px;
             height: 100%;
             overflow: auto;
 

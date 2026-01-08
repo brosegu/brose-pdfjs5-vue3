@@ -3,7 +3,7 @@
     <!-- 翻页 -->
     <a-button
       size="small"
-      :disabled="page <= 1"
+      :disabled="currentPage <= 1"
       @click="emit('prev')"
     >
       上一页
@@ -11,14 +11,14 @@
 
     <a-button
       size="small"
-      :disabled="page >= total"
+      :disabled="currentPage >= total"
       @click="emit('next')"
     >
       下一页
     </a-button>
 
     <span class="page-info">
-      {{ page }} / {{ total }}
+      {{ currentPage }} / {{ total }}
     </span>
 
     <!-- 缩放 -->
@@ -52,7 +52,6 @@
 import { ref, watch } from 'vue'
 
 const props = defineProps<{
-  page: number
   total: number
   scale: number
 }>()
@@ -64,7 +63,7 @@ const emit = defineEmits<{
   (e: 'zoomOut'): void
   (e: 'search', keyword: string): void
 }>()
-
+const currentPage=defineModel("current-page",{type:Number,default:1})
 const keyword = ref('')
 
 function onSearch() {
