@@ -1,40 +1,25 @@
 <template>
-    <div class="pdf-container">
-        <div class="controls">
-            <PdfToolbar :page="currentPage" :total="totalPages" :scale="scale" @search="search" @prev="prevPage"
-                @next="nextPage" @zoomIn="scale += 0.1; renderPage()" @zoomOut="scale -= 0.1; renderPage()" />
-        </div>
-        <div class="body">
-            <aside class="outline">
-                <a-tabs size="small" tab-position="left">
-                    <a-tab-pane key="thumb" tab="页面">
-                        <PdfThumbnails @jump="thumbJump" :pdf-doc="pdfInstance" :total-pages="totalPages"
-                            :current-page="currentPage" />
-                    </a-tab-pane>
-                    <a-tab-pane key="outline" tab="大纲">
-                        <PdfOutline :pdf-doc="pdfInstance" @jump="outlineJump" />
-                    </a-tab-pane>
-                </a-tabs>
-            </aside>
-            <div class="pdf-viewer">
-                <canvas ref="pdfCanvas"></canvas>
+       <div class="pdf-viewer relative h-[85vh]" ref="mainContainerRef">
+           
             </div>
-        </div>
-    </div>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
-import PdfOutline from './PdfOutline.vue';
-import PdfThumbnails from './PdfThumbnails.vue';
-import PdfToolbar from './PdfToolbar.vue';
+import { onMounted, ref, watch, unref } from 'vue';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import * as pdfJSViewer from 'pdfjs-dist/legacy/web/pdf_viewer';
+import 'pdfjs-dist/web/pdf_viewer.css';
 import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker?url'
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
-const pdfCanvas = ref(null);
-const currentPage = ref(1);
+const containerRef = ref(null);
+const mainContainerRef = ref(null);
 const totalPages = ref(0);
 const scale = ref(1.4);
+const eventBus = new pdfJSViewer.EventBus();
+const ANNOTATION_MODE = {
+  VIEW: 1,
+  EDIT: 2,
+};
 let pdfInstance = null;
 const props = defineProps({
     pdfUrl: {
@@ -47,77 +32,47 @@ const loadPdf = async () => {
     const loadingTask = pdfjsLib.getDocument(props.pdfUrl);
     pdfInstance = await loadingTask.promise;
     totalPages.value = pdfInstance.numPages;
-    renderPage();
+    let containerOffSetHeight = 0;
+    let containerOffSetWidth = 0;
+    if (mainContainerRef?.value) {
+        containerOffSetHeight = mainContainerRef.value.offsetHeight;
+        containerOffSetWidth = mainContainerRef.value.offsetWidth;
+    }
+    renderPDF({ containerOffSetHeight, containerOffSetWidth });
 };
+const renderPDF = async ({ containerOffSetHeight, containerOffSetWidth }) => {
+        console.log({ containerOffSetHeight, containerOffSetWidth });
+    for (let index = 0; index < totalPages.value; index++) {
+        const pageProxy = await pdfInstance.getPage(index + 1);
+        const scaledViewPort = pageProxy.getViewport({ scale: 1});
+        const calculatedScale = Math.min(
+            containerOffSetHeight / scaledViewPort.height,
+            containerOffSetWidth / scaledViewPort.width
+        );
 
-// 渲染当前页
-const renderPage = async () => {
-    if (!pdfInstance) return;
-    const page = await pdfInstance.getPage(currentPage.value);
-    const viewport = page.getViewport({ scale: scale.value });
-    const canvas = pdfCanvas.value;
-    const context = canvas.getContext('2d');
-
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    const renderContext = {
-        canvasContext: context,
-        viewport: viewport
-    };
-
-    await page.render(renderContext).promise;
-};
-// 翻页功能
-const prevPage = () => {
-    if (currentPage.value > 1) {
-        currentPage.value--;
+        await renderPage({
+            page: pageProxy,
+            pageNumber: index + 1,
+            viewPort: scaledViewPort,
+            scale: calculatedScale,
+        });
     }
 };
 
-const nextPage = () => {
-    if (currentPage.value < totalPages.value) {
-        currentPage.value++;
-    }
-};
-const thumbJump = (page) => {
-    if (page >= 1 && page <= totalPages.value) {
-        currentPage.value = page;
-    }
-};
-const outlineJump = async item => {
-    if (!pdfInstance) return;
-    try {
-        let dest = item.dest;
-        if (!dest && item.action && item.action.dest) dest = item.action.dest;
-        if (!dest) return;
-        let destArray = dest;
-        if (typeof dest === 'string') destArray = await pdfInstance.getDestination(dest);
-        const pageRef = destArray[0];
-        const pageIndex = await pdfInstance.getPageIndex(pageRef);
-        currentPage.value = pageIndex + 1;
-    } catch (err) {
-        console.warn('gotoOutline error', err);
-    }
-}
-// 搜索功能
-const search = async (searchText) => {
-    if (!searchText) return;
-
-    for (let i = 1; i <= totalPages.value; i++) {
-        const page = await pdfInstance.getPage(i);
-        const textContent = await page.getTextContent();
-        const textItems = textContent.items.map(item => item.str);
-
-        if (textItems.some(text => text.includes(searchText))) {
-            currentPage.value = i;
-            break;
-        }
-    }
+const renderPage = async ({ page, pageNumber, viewPort, scale }) => {
+    const pdfPageView = new pdfJSViewer.PDFPageView({
+        container: mainContainerRef.value,
+        id: pageNumber,
+        scale,
+        defaultViewport: viewPort,
+        eventBus,
+        annotationMode: ANNOTATION_MODE.VIEW,
+        // annotationMode: ANNOTATION_MODE.EDIT
+    });
+    pdfPageView.setPdfPage(page);
+    await pdfPageView.draw();
 };
 
-// 监听页码变化重新渲染
-watch(currentPage, renderPage);
 
 onMounted(loadPdf);
 
@@ -166,6 +121,12 @@ onMounted(loadPdf);
             overflow: auto;
             background-color: lightgray;
         }
+    }
+}
+.pdf-viewer{
+    position: relative;
+    .page{
+        position: relative;
     }
 }
 </style>

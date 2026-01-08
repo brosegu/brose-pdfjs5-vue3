@@ -1,8 +1,8 @@
 <template>
     <div class="pdf-thumbnails" ref="containerRef">
-        <div v-for="page in totalPages" :key="page" class="thumbnail-item" :class="{ active: page === currentPage }"
-            :data-page="page" ref="setItemRef" @click="emitJump(page)">
-             <canvas :ref="el => renderThumbnail(el as HTMLCanvasElement, page)" />
+        <div v-for="page in totalPages" :key="page" class="thumbnail-item text-center flex flex-col items-center"
+            :class="{ active: page === currentPage }" :data-page="page" ref="setItemRef" @click="emitJump(page)">
+            <canvas :ref="el => renderThumbnail(el as HTMLCanvasElement, page)" class="object-fit" />
             <div class="page-number">{{ page }}</div>
         </div>
     </div>
@@ -13,10 +13,8 @@
 const props = withDefaults(defineProps<{
     pdfDoc: any
     totalPages?: number
-    currentPage?: number
-}>(),{
-    totalPages:0,
-    currentPage:1
+}>(), {
+    totalPages: 0,
 })
 
 const emit = defineEmits<{
@@ -24,11 +22,13 @@ const emit = defineEmits<{
 }>()
 
 function emitJump(page: number) {
+    currentPage.value = page;
     emit('jump', page)
 }
-
+const currentPage = defineModel("current-page", { type: Number, default: 1 })
 /* 渲染缩略图 */
 async function renderThumbnail(canvas: HTMLElement, pageNum: number) {
+    if (!props.pdfDoc || !canvas) return;
     const page = await props.pdfDoc.getPage(pageNum)
     const viewport = page.getViewport({ scale: 0.25 })
     const ctx = canvas.getContext('2d')!
