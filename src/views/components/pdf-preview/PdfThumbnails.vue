@@ -9,7 +9,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, nextTick, VueElement } from 'vue'
 
 const props = withDefaults(defineProps<{
     pdfDoc: any
@@ -30,17 +29,12 @@ function emitJump(page: number) {
 
 /* 渲染缩略图 */
 async function renderThumbnail(canvas: HTMLElement, pageNum: number) {
-
     const page = await props.pdfDoc.getPage(pageNum)
     const viewport = page.getViewport({ scale: 0.25 })
-
     const ctx = canvas.getContext('2d')!
-
     canvas.width = viewport.width
     canvas.height = viewport.height
-
     await page.render({ canvasContext: ctx, viewport }).promise
-//  el.querySelector('.canvas-wrapper')!.appendChild(canvas)
 }
 
 </script>

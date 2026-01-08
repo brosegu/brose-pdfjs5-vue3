@@ -86,7 +86,7 @@ function onSearch() {
   padding: 0 12px;
 
   background: #ffffff;
-  border-bottom: 1px solid #e5e6eb;
+
 }
 
 .page-info {

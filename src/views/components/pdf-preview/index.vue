@@ -8,16 +8,17 @@
             <aside class="outline">
                 <a-tabs size="small" tab-position="left">
                     <a-tab-pane key="thumb" tab="页面">
-                        <PdfThumbnails @jump="thumbJump" :pdf-doc="pdfInstance" :total-pages="totalPages" :current-page="currentPage" />
+                        <PdfThumbnails @jump="thumbJump" :pdf-doc="pdfInstance" :total-pages="totalPages"
+                            :current-page="currentPage" />
                     </a-tab-pane>
                     <a-tab-pane key="outline" tab="大纲">
                         <PdfOutline :pdf-doc="pdfInstance" @jump="outlineJump" />
                     </a-tab-pane>
                 </a-tabs>
             </aside>
-          <div class="pdf-viewer">
-              <canvas ref="pdfCanvas" ></canvas>
-          </div>
+            <div class="pdf-viewer">
+                <canvas ref="pdfCanvas"></canvas>
+            </div>
         </div>
     </div>
 </template>
@@ -33,7 +34,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 const pdfCanvas = ref(null);
 const currentPage = ref(1);
 const totalPages = ref(0);
-const scale = ref(1.5);
+const scale = ref(1.4);
 let pdfInstance = null;
 const props = defineProps({
     pdfUrl: {
@@ -84,20 +85,20 @@ const thumbJump = (page) => {
         currentPage.value = page;
     }
 };
-const outlineJump=async item=>{
-  if (!pdfInstance) return;
-  try {
-    let dest = item.dest;
-    if (!dest && item.action && item.action.dest) dest = item.action.dest;
-    if (!dest) return;
-    let destArray = dest;
-    if (typeof dest === 'string') destArray = await pdfInstance.getDestination(dest);
-    const pageRef = destArray[0];
-    const pageIndex = await pdfInstance.getPageIndex(pageRef);
-    currentPage.value = pageIndex + 1;
-  } catch (err) {
-    console.warn('gotoOutline error', err);
-  }
+const outlineJump = async item => {
+    if (!pdfInstance) return;
+    try {
+        let dest = item.dest;
+        if (!dest && item.action && item.action.dest) dest = item.action.dest;
+        if (!dest) return;
+        let destArray = dest;
+        if (typeof dest === 'string') destArray = await pdfInstance.getDestination(dest);
+        const pageRef = destArray[0];
+        const pageIndex = await pdfInstance.getPageIndex(pageRef);
+        currentPage.value = pageIndex + 1;
+    } catch (err) {
+        console.warn('gotoOutline error', err);
+    }
 }
 // 搜索功能
 const search = async (searchText) => {
@@ -127,29 +128,44 @@ onMounted(loadPdf);
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 20px;
     color: #000;
-}
+    margin: 10px;
+    border: 1px solid #ccc;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 
-.body {
-    display: flex;
-    width: 100%;
-
-    .outline {
-        width: 400px;
+    .controls {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid #e5e6eb;
     }
 
-    .pdf-viewer {
-        flex: 1;
-        border: 1px solid #ccc;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        text-align: center;
+    .body {
+        position: relative;
+        height: 85vh;
+        display: flex;
+        width: 100%;
+        overflow: hidden;
+
+        .outline {
+            width: 330px;
+            height: 100%;
+            overflow: auto;
+
+            :deep(.ant-tabs) {
+                height: 100%;
+            }
+        }
+
+        .pdf-viewer {
+            flex: 1;
+            text-align: center;
+            overflow: auto;
+            background-color: lightgray;
+        }
     }
-}
-.controls {
-    margin-bottom: 20px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
 }
 </style>
