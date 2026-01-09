@@ -1,171 +1,89 @@
 <template>
-    <div class="pdf-container">
-        <div class="controls">
-            <PdfToolbar :page="currentPage" :total="totalPages" :scale="scale" @search="search" @prev="prevPage"
-                @next="nextPage" @zoomIn="scale += 0.1; renderPage()" @zoomOut="scale -= 0.1; renderPage()" />
-        </div>
-        <div class="body">
-            <aside class="outline">
-                <a-tabs size="small" tab-position="left">
-                    <a-tab-pane key="thumb" tab="页面">
-                        <PdfThumbnails @jump="thumbJump" :pdf-doc="pdfInstance" :total-pages="totalPages"
-                            :current-page="currentPage" />
-                    </a-tab-pane>
-                    <a-tab-pane key="outline" tab="大纲">
-                        <PdfOutline :pdf-doc="pdfInstance" @jump="outlineJump" />
-                    </a-tab-pane>
-                </a-tabs>
-            </aside>
-            <div class="pdf-viewer">
-                <canvas ref="pdfCanvas"></canvas>
-            </div>
-        </div>
-    </div>
+  <div class="pdf-viewer">
+    <div ref="constainerRef" class="pdfViewer singlePageView"></div>
+  </div>
 </template>
 
-<script setup>
-import { onMounted, ref, watch } from 'vue';
-import PdfOutline from './PdfOutline.vue';
-import PdfThumbnails from './PdfThumbnails.vue';
-import PdfToolbar from './PdfToolbar.vue';
+<script lang="js" setup>
+import { ref, onMounted } from 'vue';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
-import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker?url'
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
-const pdfCanvas = ref(null);
+import * as pdfjsViewer from 'pdfjs-dist/legacy/web/pdf_viewer';
+import 'pdfjs-dist/legacy/web/pdf_viewer.css';
+import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker; // 使用本地 worker
+const props = defineProps({
+  pdfUrl: {
+    type: String,
+    required: true,
+  },
+});
+const constainerRef = ref(null);
+const pdfDoc = ref(null);
 const currentPage = ref(1);
 const totalPages = ref(0);
-const scale = ref(1.4);
-let pdfInstance = null;
-const props = defineProps({
-    pdfUrl: {
-        type: String,
-        required: true
-    },
-});
-// 加载PDF文档
-const loadPdf = async () => {
-    const loadingTask = pdfjsLib.getDocument(props.pdfUrl);
-    pdfInstance = await loadingTask.promise;
-    totalPages.value = pdfInstance.numPages;
-    renderPage();
-};
+const scale = ref(1);
+const thumbnails = ref([]);
+const pdfOutline = ref([]);
+const activeTab = ref("thumbnails");
+const isLoading = ref(false);
 
-// 渲染当前页
-const renderPage = async () => {
-    if (!pdfInstance) return;
-    const page = await pdfInstance.getPage(currentPage.value);
-    const viewport = page.getViewport({ scale: scale.value });
-    const canvas = pdfCanvas.value;
-    const context = canvas.getContext('2d');
+const PAGE_TO_VIEW = 1;
+const SCALE = 1.0;
 
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+const eventBus = new pdfjsViewer.EventBus();
+const renderPdf = async () => {
+  // Loading document.
+  const loadingTask = pdfjsLib.getDocument({
+    url: props.pdfUrl,
+  });
 
-    const renderContext = {
-        canvasContext: context,
-        viewport: viewport
-    };
+  const pdfDocument = await loadingTask.promise;
+  // Document loaded, retrieving the page.
+  const pdfPage = await pdfDocument.getPage(PAGE_TO_VIEW);
 
-    await page.render(renderContext).promise;
-};
-// 翻页功能
-const prevPage = () => {
-    if (currentPage.value > 1) {
-        currentPage.value--;
-    }
-};
-
-const nextPage = () => {
-    if (currentPage.value < totalPages.value) {
-        currentPage.value++;
-    }
-};
-const thumbJump = (page) => {
-    if (page >= 1 && page <= totalPages.value) {
-        currentPage.value = page;
-    }
-};
-const outlineJump = async item => {
-    if (!pdfInstance) return;
-    try {
-        let dest = item.dest;
-        if (!dest && item.action && item.action.dest) dest = item.action.dest;
-        if (!dest) return;
-        let destArray = dest;
-        if (typeof dest === 'string') destArray = await pdfInstance.getDestination(dest);
-        const pageRef = destArray[0];
-        const pageIndex = await pdfInstance.getPageIndex(pageRef);
-        currentPage.value = pageIndex + 1;
-    } catch (err) {
-        console.warn('gotoOutline error', err);
-    }
+  // Creating the page view with default parameters.
+  const pdfPageView = new pdfjsViewer.PDFPageView({
+    container: constainerRef.value,
+    id: PAGE_TO_VIEW,
+    scale: SCALE,
+    defaultViewport: pdfPage.getViewport({ scale: SCALE }),
+    eventBus,
+  });
+  // Associate the actual page with the view, and draw it.
+  pdfPageView.setPdfPage(pdfPage);
+  pdfPageView.draw();
 }
-// 搜索功能
-const search = async (searchText) => {
-    if (!searchText) return;
-
-    for (let i = 1; i <= totalPages.value; i++) {
-        const page = await pdfInstance.getPage(i);
-        const textContent = await page.getTextContent();
-        const textItems = textContent.items.map(item => item.str);
-
-        if (textItems.some(text => text.includes(searchText))) {
-            currentPage.value = i;
-            break;
-        }
-    }
+const searchText = (query) => {
+  // 实现文本查询的逻辑
+  console.log("Searching for:", query);
 };
 
-// 监听页码变化重新渲染
-watch(currentPage, renderPage);
-
-onMounted(loadPdf);
-
+onMounted(() => {
+  renderPdf();
+});
 </script>
 
-<style lang="less" scoped>
-.pdf-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #000;
-    margin: 10px;
-    border: 1px solid #ccc;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+<style scoped>
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-    .controls {
-        position: sticky;
-        top: 0;
-        width: 100%;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        border-bottom: 1px solid #e5e6eb;
-    }
+.pdf-controls {
+  margin: 20px 0;
+}
 
-    .body {
-        position: relative;
-        height: 85vh;
-        display: flex;
-        width: 100%;
-        overflow: hidden;
+.thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+}
 
-        .outline {
-            width: 330px;
-            height: 100%;
-            overflow: auto;
-
-            :deep(.ant-tabs) {
-                height: 100%;
-            }
-        }
-
-        .pdf-viewer {
-            flex: 1;
-            text-align: center;
-            overflow: auto;
-            background-color: lightgray;
-        }
-    }
+.thumbnail {
+  width: 100px;
+  height: auto;
+  cursor: pointer;
+  margin: 5px;
+  border: 1px solid #ddd;
 }
 </style>
