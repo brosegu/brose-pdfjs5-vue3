@@ -2,7 +2,7 @@
     <div class="pdf-container">
         <div class="controls">
             <PdfToolbar :page="currentPage" :total="totalPages" :scale="scale" @search="search" @prev="prevPage"
-                @next="nextPage" @zoomIn="scale += 0.1; renderPage()" @zoomOut="scale -= 0.1; renderPage()" />
+                @next="nextPage" @zoomIn="scale+=0.1" @zoomOut="scale-=0.1" />
         </div>
         <div class="body">
             <aside class="outline relative">
@@ -44,6 +44,7 @@ const pdfContainer = ref(null);
 const currentPage = ref(1);
 const totalPages = ref(0);
 const scale = ref(1);
+let pageViews=[];
 let pdfInstance = null;
 
 const eventBus = new pdfjsViewer.EventBus();
@@ -58,6 +59,7 @@ const loadPdf = async () => {
 // 渲染当前页
 const renderAllPages = async () => {
     if (!pdfInstance) return;
+    pageViews=[];
     for(let i=0;i<totalPages.value;i++){
        renderPage(i+1);
     }
@@ -72,13 +74,20 @@ const renderPage = async (pageNum) => {
     scale: unref(scale),
     defaultViewport: pdfPage.getViewport({ scale: unref(scale) }),
     eventBus,
+    textLayerMode:2
   });
   // Associate the actual page with the view, and draw it.
   pdfPageView.setPdfPage(pdfPage);
   pdfPageView.draw();
+  pageViews.push(pdfPageView);
 };
-const scrollByPage = page => {
+const controlScrollToPage = page => {
     document.querySelector(`[data-page-number="viewer_pageitem_${page}"]`).scrollIntoView({ behavior: 'smooth' });
+}
+const controlScaleTo = scaleValue => {
+    pageViews.forEach(pv => {
+        pv.update({ scale : scaleValue });
+    });
 }
 // 翻页功能
 const prevPage = () => {
@@ -129,7 +138,8 @@ const search = async (searchText) => {
 };
 
 // 监听页码变化重新渲染
- watch(currentPage, scrollByPage);
+ watch(currentPage, controlScrollToPage);
+ watch(scale, controlScaleTo);
 
 onMounted(loadPdf);
 
