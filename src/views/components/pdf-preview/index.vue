@@ -58,12 +58,6 @@ const loadPdf = async () => {
 const renderPage = async (canvas, pageNum, scaleValue = scale.value) => {
     if (!pdfInstance || !canvas) return;
     // 如果上一次 render 还在，先取消
-    const prevTask = renderTasks.get(pageNum)
-    if (prevTask) {
-        prevTask.cancel()
-        renderTasks.delete(pageNum)
-    }
-
     const page = await pdfInstance.getPage(pageNum);
     const viewport = page.getViewport({ scale: scaleValue });
     const context = canvas.getContext('2d');
@@ -74,17 +68,8 @@ const renderPage = async (canvas, pageNum, scaleValue = scale.value) => {
         canvasContext: context,
         viewport: viewport
     };
-
-    const renderTask = page.render(renderContext)
-    renderTasks.set(pageNum, renderTask)
-
-    try {
-        await renderTask.promise
-    } catch (err) {
-        if (err?.name !== 'RenderingCancelledException') {
-            throw err
-        }
-    }
+    const renderTask =  page.render(renderContext)
+    await renderTask.promise;
 };
 // 翻页功能
 const prevPage = () => {
@@ -122,14 +107,10 @@ const outlineJump = async item => {
     }
 }
 async function rerenderAllPages(scaleValue) {
-    for (const item of range(1, totalPages.value + 1)) {
-        const canvas = document.querySelector(
-            `#viewer_pageitem_${item} canvas`
-        );
-        if (canvas) {
-           await renderPage(canvas, item, scaleValue)
-        }
-    }
+  await Promise.all(range(1, totalPages.value + 1).map(pageNum => {
+      const canvas = document.querySelector(`#viewer_pageitem_${pageNum} canvas`);
+      return renderPage(canvas, pageNum, scaleValue);
+  }));
 }
 // 搜索功能
 const search = async (searchText) => {
