@@ -71,49 +71,41 @@ function onSearch() {
 }
 </script>
 
-<style lang="less" scoped>
-.pdf-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #000;
-    margin: 10px;
-    border: 1px solid #ccc;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+<style scoped>
+.pdf-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
 
-    .controls {
-        position: sticky;
-        top: 0;
-        width: 100%;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        border-bottom: 1px solid #e5e6eb;
-    }
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
-    .body {
-        position: relative;
-        height: 85vh;
-        display: flex;
-        width: 100%;
-        overflow: hidden;
+  height: 48px;
+  padding: 0 12px;
 
-        .outline {
-            width: 300px;
-            height: 100%;
-            overflow: auto;
+  background: #ffffff;
 
-            :deep(.ant-tabs) {
-                height: 100%;
-            }
-        }
+}
 
-        .pdf-viewer {
-            flex: 1;
-            text-align: center;
-            overflow: auto;
-            background-color: lightgray;
-        }
-    }
+.page-info {
+  min-width: 60px;
+  text-align: center;
+  font-size: 13px;
+  color: #333;
+}
+
+.zoom-info {
+  min-width: 50px;
+  text-align: center;
+  font-size: 13px;
+  color: #333;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: #e5e6eb;
+  margin: 0 4px;
 }
 </style>
