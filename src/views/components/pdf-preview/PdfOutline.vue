@@ -21,6 +21,7 @@ const emit = defineEmits<{
 }>()
 const currentDest = ref();
 const outline = ref([]);
+
 /* 递归解析 outline */
 async function parse(items: any[], level = 0) {
   for (const item of items) {
