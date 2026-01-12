@@ -13,7 +13,8 @@
     "ant-design-vue": "^4.2.6",
     "lodash-es": "^4.17.22",
     "naive-ui": "^2.43.2",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "^2.16.105",
+    "tailwindcss": "^4.1.18",
     "vue": "^3.5.24",
     "vue-router": "4"
   },
